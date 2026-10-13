@@ -1,0 +1,13 @@
+# 講演記録（CSV）は公開しない
+*.csv
+
+# 個人用メモ
+memo.txt
+
+# OS が自動生成するファイル
+.DS_Store
+Thumbs.db
+
+# エディタの設定
+.vscode/
+.idea/
