@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>進行記録</title>
+<style>
+  /* ライトテーマ（既定） */
+  :root, :root[data-theme="light"]{
+    color-scheme:light;
+    --bg:#f4f6fa; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+    --line:#e5e7eb; --primary:#2563eb; --primary-d:#1d4ed8;
+    --danger:#dc2626; --ok:#059669;
+    --preset:#eef4ff; --preset-d:#dbe7ff; --preset-text:#2563eb;
+    --btn-bg:#ffffff; --btn-hover:#f9fafb;
+    --danger-line:#fecaca; --danger-hover:#fef2f2;
+    --stripe:#fafbfc; --shadow:rgba(0,0,0,.08);
+  }
+  /* OSがダークモードのとき（手動でライトに切り替えていない場合） */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#0f172a; --card:#1e293b; --text:#e5e7eb; --muted:#94a3b8;
+      --line:#334155; --primary:#3b82f6; --primary-d:#2563eb;
+      --danger:#f87171; --ok:#10b981;
+      --preset:#1e3a5f; --preset-d:#2b4c7e; --preset-text:#93c5fd;
+      --btn-bg:#1e293b; --btn-hover:#273549;
+      --danger-line:#7f1d1d; --danger-hover:#3b1d1d;
+      --stripe:#172233; --shadow:rgba(0,0,0,.4);
+    }
+  }
+  /* 手動でダークに切り替えた場合 */
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#0f172a; --card:#1e293b; --text:#e5e7eb; --muted:#94a3b8;
+    --line:#334155; --primary:#3b82f6; --primary-d:#2563eb;
+    --danger:#f87171; --ok:#10b981;
+    --preset:#1e3a5f; --preset-d:#2b4c7e; --preset-text:#93c5fd;
+    --btn-bg:#1e293b; --btn-hover:#273549;
+    --danger-line:#7f1d1d; --danger-hover:#3b1d1d;
+    --stripe:#172233; --shadow:rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:16px; min-height:100vh;
+    font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif;
+    background:var(--bg); color:var(--text);
+    transition:background .2s, color .2s;
+  }
+  .wrap{max-width:720px; margin:0 auto; display:grid; gap:16px}
+  .card{background:var(--card); border-radius:14px; padding:20px;
+        box-shadow:0 1px 3px var(--shadow); transition:background .2s}
+  .head{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px}
+  h1{font-size:16px; margin:0; color:var(--muted); font-weight:600}
+
+  /* 経過時間 */
+  #display{
+    font-size:clamp(48px,14vw,80px); font-weight:700; text-align:center;
+    font-variant-numeric:tabular-nums; letter-spacing:.02em;
+    color:var(--text); transition:color .2s;
+  }
+  #display.running{color:var(--primary)}
+  #status{font-size:12px; color:var(--muted); text-align:center; min-height:1em; margin-top:10px}
+
+  /* ボタン共通 */
+  button{
+    font:inherit; cursor:pointer; border:0; border-radius:10px;
+    padding:12px 18px; font-size:16px; font-weight:600;
+    transition:background .15s, transform .05s;
+  }
+  button:active{transform:scale(.97)}
+  .theme-btn{
+    padding:6px 12px; font-size:13px; font-weight:500;
+    background:var(--btn-bg); color:var(--text); border:1px solid var(--line);
+  }
+  .theme-btn:hover{background:var(--btn-hover)}
+  .controls{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px}
+  #startStop{background:var(--primary); color:#fff}
+  #startStop:hover{background:var(--primary-d)}
+  #startStop.stop{background:var(--ok)}
+  #reset{background:var(--btn-bg); color:var(--danger); border:1px solid var(--danger-line)}
+  #reset:hover{background:var(--danger-hover)}
+  #csv{background:var(--btn-bg); color:var(--text); border:1px solid var(--line)}
+  #csv:hover{background:var(--btn-hover)}
+
+  /* プリセット */
+  #presets{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px}
+  #presets button{background:var(--preset); color:var(--preset-text); border:1px solid var(--preset-d);
+                  padding:14px 10px; font-size:15px}
+  #presets button:hover{background:var(--preset-d)}
+
+  /* 記録テーブル */
+  .table-wrap{overflow-x:auto}
+  table{width:100%; border-collapse:collapse; font-size:15px; font-variant-numeric:tabular-nums}
+  th{
+    text-align:left; font-size:12px; color:var(--muted); font-weight:600;
+    padding:8px 10px; border-bottom:2px solid var(--line); white-space:nowrap;
+  }
+  td{padding:10px; border-bottom:1px solid var(--line)}
+  tbody tr:nth-child(even){background:var(--stripe)}
+  tbody tr:last-child td{font-weight:600}
+  .empty{color:var(--muted); text-align:center; padding:20px}
+  .section-title{font-size:14px; font-weight:600; color:var(--muted); margin:0 0 10px}
+
+  @media (max-width:480px){
+    .controls{grid-template-columns:1fr 1fr 1fr; gap:8px}
+    button{padding:12px 8px; font-size:15px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="card">
+    <div class="head">
+      <h1>進行記録</h1>
+      <button id="theme" class="theme-btn" aria-label="テーマを切り替え"></button>
+    </div>
+    <div id="display">00:00:00</div>
+    <div class="controls">
+      <button id="startStop">開始</button>
+      <button id="reset">リセット</button>
+      <button id="csv">CSV保存</button>
+    </div>
+    <div id="status"></div>
+  </section>
+
+  <section class="card">
+    <p class="section-title">プリセット（押すと経過時間と時刻を記録）</p>
+    <div id="presets"></div>
+  </section>
+
+  <section class="card">
+    <p class="section-title">記録</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>項目</th><th>経過</th><th>時刻（JST）</th></tr></thead>
+        <tbody id="log"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script src="presets.js"></script>
+<script>
+const FALLBACK_PRESETS = ["導入", "本題1", "本題2", "質疑応答", "まとめ"];
+
+let running = false, base = 0, startT = 0, logs = [];
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+
+// 経過時間（ミリ秒）。performance.now() は時刻設定の影響を受けない
+function elapsed() {
+  return running ? base + (performance.now() - startT) : base;
+}
+
+// ミリ秒を HH:MM:SS に整形
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+}
+
+function tick() {
+  $("display").textContent = fmt(elapsed());
+}
+setInterval(tick, 200);
+
+// 日本標準時（UTC+9）に固定した日時文字列。端末のタイムゾーンに依存しない
+function jstString(date) {
+  const j = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${j.getUTCFullYear()}-${pad(j.getUTCMonth() + 1)}-${pad(j.getUTCDate())} ` +
+         `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:${pad(j.getUTCSeconds())}`;
+}
+
+// HTMLに埋め込む文字列をエスケープ
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// テーマ切り替え（既定はOSの設定に従う）
+function isDark() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function updateThemeBtn() {
+  $("theme").textContent = isDark() ? "☀ ライト" : "🌙 ダーク";
+}
+$("theme").onclick = () => {
+  document.documentElement.dataset.theme = isDark() ? "light" : "dark";
+  updateThemeBtn();
+};
+updateThemeBtn();
+
+function setRunningUI(on) {
+  const btn = $("startStop");
+  btn.textContent = on ? "停止" : "開始";
+  btn.classList.toggle("stop", on);
+  $("display").classList.toggle("running", on);
+}
+
+$("startStop").onclick = () => {
+  if (running) {
+    base = elapsed();
+    running = false;
+  } else {
+    startT = performance.now();
+    running = true;
+  }
+  setRunningUI(running);
+};
+
+$("reset").onclick = () => {
+  if (!confirm("リセットしますか？（記録も消えます）")) return;
+  running = false;
+  base = 0;
+  logs = [];
+  setRunningUI(false);
+  render();
+  tick();
+};
+
+function mark(label) {
+  logs.push({
+    label,
+    elapsed: fmt(elapsed()),
+    time: jstString(new Date())
+  });
+  render();
+}
+
+function render() {
+  if (logs.length === 0) {
+    $("log").innerHTML = `<tr><td colspan="3" class="empty">まだ記録がありません</td></tr>`;
+    return;
+  }
+  $("log").innerHTML = logs.map(l =>
+    `<tr><td>${esc(l.label)}</td><td>${l.elapsed}</td><td>${l.time}</td></tr>`
+  ).join("");
+}
+
+function renderPresets(list) {
+  $("presets").innerHTML = "";
+  list.forEach(p => {
+    const b = document.createElement("button");
+    b.textContent = p;
+    b.onclick = () => mark(p);
+    $("presets").appendChild(b);
+  });
+}
+
+// presets.js の読み込み結果に応じてボタンを生成
+if (Array.isArray(window.PRESET_LIST)) {
+  renderPresets(window.PRESET_LIST);
+  $("status").textContent = `プリセット ${window.PRESET_LIST.length} 件を読み込みました`;
+} else {
+  renderPresets(FALLBACK_PRESETS);
+  $("status").textContent = "presets.js が見つからないため、初期設定を使用中";
+}
+
+render();
+
+// CSV保存（BOM付きでExcelでも文字化けしない）
+$("csv").onclick = () => {
+  const quote = s => `"${String(s).replace(/"/g, '""')}"`;
+  const rows = [
+    ["項目", "経過時間", "時刻（JST）"],
+    ...logs.map(l => [l.label, l.elapsed, l.time])
+  ];
+  const csv = "\uFEFF" + rows.map(r => r.map(quote).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const fileTime = jstString(new Date()).replace(/[-: ]/g, "");
+  const a = Object.assign(document.createElement("a"), {
+    href: url,
+    download: `log_${fileTime}.csv`
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+};
+</script>
+</body>
+</html>
